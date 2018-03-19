@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Find docker service id
+: ${1:"Must specify service container id"}
+SERVICE_CONTENT="$(docker inspect $1 | jq '.[] | {serviceId: .ServiceID, nodeId: .NodeID, containerId: .Status.ContainerStatus.ContainerID}')"
+
+# echo Detected service $SERVICE_CONTENT
+SERVICE_NAME="$(echo $SERVICE_CONTENT | jq '.serviceId' -r | xargs docker inspect | jq '.[0] | .Spec.Name' -r)"
+# echo Detected service $SERVICE_NAME
+NODE_ID="$(echo $SERVICE_CONTENT | jq '.nodeId' -r)"
+# echo Node Id $NODE_ID
+NODE_NAME="$(docker node ls -f id=$NODE_ID --format '{{json .}}' | jq '.Hostname' -r)"
+# echo Detected node $NODE_NAME
+CONTAINER_ID="$(echo $SERVICE_CONTENT | jq '.containerId' -r)"
+# echo Detected container id $CONTAINER_ID
+
+SIDEKICK_SERVICE_NAME="$(docker inspect $(hostname) | jq '.[0] | .Config.Labels["com.docker.swarm.service.id"]' -r)"
+# echo Detected sidekick service name $SIDEKICK_SERVICE_NAME
+TARGET_SIDEKICK="$( docker service ps $SIDEKICK_SERVICE_NAME -f desired-state=running -f node=$NODE_NAME --no-trunc --format '{{.Name}}.{{.ID}}' )"
+# echo Detected target side kick $TARGET_SIDEKICK
+
+shift
+ssh -t -o StrictHostKeyChecking=no $TARGET_SIDEKICK docker exec -it $CONTAINER_ID ${@:"/bin/sh"}
