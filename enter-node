@@ -1,0 +1,11 @@
+#!/bin/sh
+
+: ${1:"Must specify node"}
+
+SIDEKICK_SERVICE_NAME="$(docker inspect $(hostname) | jq '.[0] | .Config.Labels["com.docker.swarm.service.id"]' -r)"
+# echo Detected sidekick service name $SIDEKICK_SERVICE_NAME
+
+TARGET_SIDEKICK="$( docker service ps $SIDEKICK_SERVICE_NAME -f desired-state=running -f node=$NODE_NAME --no-trunc --format '{{.Name}}.{{.ID}}' )"
+# echo Detected target side kick $TARGET_SIDEKICK
+
+ssh -t -o StrictHostKeyChecking=no $TARGET_SIDEKICK /bin/bash
